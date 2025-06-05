@@ -124,7 +124,11 @@ def simulate_income_planner(investment, etf_weights, state, income):
 def show_portfolio_performance(etf_weights, start, end, interval):
     prices, returns = pd.DataFrame(), {}
     for etf, w in etf_weights.items():
-        data = yf.download(etf, start=start, end=end, interval=interval)['Adj Close']
+        data = yf.download(etf, start=start, end=end, interval=interval)
+        if 'Adj Close' not in data:
+            st.warning(f"⚠️ No data found for {etf}. Skipping.")
+            continue
+        data = data['Adj Close']
         prices[etf] = data
     rets = prices.pct_change().dropna()
     weighted = rets.dot(pd.Series(etf_weights))
