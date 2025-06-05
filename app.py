@@ -61,8 +61,9 @@ def get_federal_tax_rate(income):
     else:
         return 0.37
 
-@cache
-def generate_distribution_schedule(investment, selected_etfs):
+# @cache removed due to unhashable list input
+# use a workaround or disable for now
+def generate_distribution_schedule(investment, selected_etfs):  # Removed @cache decorator due to list input
     if not selected_etfs:
         return pd.DataFrame()
 
@@ -146,7 +147,7 @@ if st.button("📉 Calculate Income"):
         st.markdown("### 📆 Projected Distribution Schedule")
         schedule = generate_distribution_schedule(investment, selected_etfs)
         if not schedule.empty:
-            schedule['Pay Date'] = schedule['Pay Date'].dt.strftime('%Y-%m-%d')
+            schedule['Pay Date'] = schedule['Pay Date'].apply(lambda d: d.strftime('%Y-%m-%d'))
             st.dataframe(schedule)
             plot_distribution_schedule(schedule)
             create_pdf(summary_df, schedule)
