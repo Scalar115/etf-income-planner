@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 import calendar
 from functools import lru_cache
 from io import BytesIO
+import streamlit.components.v1 as components
 import socket
 
 st.set_page_config(page_title="ETF Income Planner", layout="centered")
@@ -17,14 +18,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Developer Mode ---
-DEVELOPER_IPS = ["173.76.76.18"]  # Replace with your actual IP to unlock unlimited usage
-user_ip = socket.gethostbyname(socket.gethostname())
-is_developer = user_ip in DEVELOPER_IPS
+# --- Developer Toggle via Secret Code ---
+dev_code = st.sidebar.text_input("🔐 Developer Access Code", type="password")
+is_developer = dev_code == "letmein123"
 
-# --- Session state for free trial ---
-if 'free_uses' not in st.session_state:
-    st.session_state['free_uses'] = 999 if is_developer else 1
+# --- IP Address Tracking ---
+@st.cache_data(show_spinner=False)
+def get_client_ip():
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except:
+        return "unknown"
+
+client_ip = get_client_ip()
+
+# --- Trial Usage Tracking ---
+if "used_ips" not in st.session_state:
+    st.session_state.used_ips = set()
+
+has_used_trial = client_ip in st.session_state.used_ips
+if not is_developer and not has_used_trial:
+    st.session_state.used_ips.add(client_ip)
 
 # --- ETF Data ---
 etf_yields = {
@@ -135,10 +149,10 @@ def create_pdf(summary_df, schedule_df):
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         summary_df.to_excel(writer, sheet_name='Income Summary', index=False)
         schedule_df.to_excel(writer, sheet_name='Distribution Schedule', index=False)
-    st.download_button("📥 Download Summary as Excel", data=buffer.getvalue(), file_name="income_summary.xlsx")
+    st.download_button("📅 Download Summary as Excel", data=buffer.getvalue(), file_name="income_summary.xlsx")
 
 # --- UI ---
-st.title("📈 Monthly Income Planner for ETF Investors")
+st.title("📊 Monthly Income Planner for ETF Investors")
 
 investment = st.number_input("💰 Investment Amount ($)", value=250000)
 income = st.number_input("💼 Your Current Taxable Income ($)", value=145000)
@@ -146,10 +160,7 @@ selected_etfs = st.multiselect("📊 Select ETFs", list(etf_yields.keys()), defa
 state = st.selectbox("🌎 Select Your State", list(state_tax_rates.keys()), index=0, help="If your state isn't listed, default tax rate of 5% will apply")
 
 if st.button("📉 Calculate Income"):
-    if st.session_state['free_uses'] > 0:
-        if not is_developer:
-            st.session_state['free_uses'] -= 1
-
+    if is_developer or not has_used_trial:
         if selected_etfs and investment > 0:
             summary = simulate_income_planner(investment, selected_etfs, state, income)
             st.markdown("### 📋 Income Summary")
@@ -168,5 +179,5 @@ if st.button("📉 Calculate Income"):
         else:
             st.warning("Please enter an investment amount and select at least one ETF.")
     else:
-        st.warning("🚫 You've used your free simulation. Subscribe for unlimited access.")
+        st.warning("🛑 You've used your free simulation. Subscribe for unlimited access.")
         st.markdown("[Click here to subscribe for $5/month](https://buy.stripe.com/test_dR6aEd8KcbkN4fK4gg)")
