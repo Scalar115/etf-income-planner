@@ -131,7 +131,11 @@ def show_portfolio_performance(etf_weights, start, end, interval):
         data = data['Adj Close']
         prices[etf] = data
     rets = prices.pct_change().dropna()
-    weighted = rets.dot(pd.Series(etf_weights))
+    matching_weights = {etf: w for etf, w in etf_weights.items() if etf in prices.columns}
+    if not matching_weights:
+        st.error("❌ No valid ETF data available to calculate performance.")
+        return
+    weighted = rets[matching_weights.keys()].dot(pd.Series(matching_weights))
     growth = (1 + weighted).cumprod()
     st.markdown("### 📈 Historical Portfolio Performance")
     st.line_chart(growth)
