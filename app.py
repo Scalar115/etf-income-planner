@@ -11,7 +11,7 @@ import socket
 import yfinance as yf
 from yfinance import shared
 shared._USE_THREADS = False
-yf.pdr_override()
+# yf.pdr_override() removed due to AttributeError
 
 st.set_page_config(page_title="ETF Income Planner", layout="centered")
 st.markdown("""
