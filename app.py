@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import calendar
-from functools import lru_cache, cache
+from functools import lru_cache
 from io import BytesIO
+import socket
 
 st.set_page_config(page_title="ETF Income Planner", layout="centered")
 st.markdown("""
@@ -15,6 +16,15 @@ st.markdown("""
     h1, h2, h3, h4 {color: #0a3d62;}
     </style>
 """, unsafe_allow_html=True)
+
+# --- Developer Mode ---
+DEVELOPER_IPS = ["173.76.76.18"]  # Replace with your actual IP to unlock unlimited usage
+user_ip = socket.gethostbyname(socket.gethostname())
+is_developer = user_ip in DEVELOPER_IPS
+
+# --- Session state for free trial ---
+if 'free_uses' not in st.session_state:
+    st.session_state['free_uses'] = 999 if is_developer else 1
 
 # --- ETF Data ---
 etf_yields = {
@@ -61,9 +71,7 @@ def get_federal_tax_rate(income):
     else:
         return 0.37
 
-# @cache removed due to unhashable list input
-# use a workaround or disable for now
-def generate_distribution_schedule(investment, selected_etfs):  # Removed @cache decorator due to list input
+def generate_distribution_schedule(investment, selected_etfs):
     if not selected_etfs:
         return pd.DataFrame()
 
@@ -138,20 +146,27 @@ selected_etfs = st.multiselect("📊 Select ETFs", list(etf_yields.keys()), defa
 state = st.selectbox("🌎 Select Your State", list(state_tax_rates.keys()), index=0, help="If your state isn't listed, default tax rate of 5% will apply")
 
 if st.button("📉 Calculate Income"):
-    if selected_etfs and investment > 0:
-        summary = simulate_income_planner(investment, selected_etfs, state, income)
-        st.markdown("### 📋 Income Summary")
-        summary_df = pd.DataFrame(summary.items(), columns=['Metric', 'Value'])
-        st.dataframe(summary_df)
+    if st.session_state['free_uses'] > 0:
+        if not is_developer:
+            st.session_state['free_uses'] -= 1
 
-        st.markdown("### 📆 Projected Distribution Schedule")
-        schedule = generate_distribution_schedule(investment, selected_etfs)
-        if not schedule.empty:
-            schedule['Pay Date'] = schedule['Pay Date'].apply(lambda d: d.strftime('%Y-%m-%d'))
-            st.dataframe(schedule)
-            plot_distribution_schedule(schedule)
-            create_pdf(summary_df, schedule)
+        if selected_etfs and investment > 0:
+            summary = simulate_income_planner(investment, selected_etfs, state, income)
+            st.markdown("### 📋 Income Summary")
+            summary_df = pd.DataFrame(summary.items(), columns=['Metric', 'Value'])
+            st.dataframe(summary_df)
+
+            st.markdown("### 📆 Projected Distribution Schedule")
+            schedule = generate_distribution_schedule(investment, selected_etfs)
+            if not schedule.empty:
+                schedule['Pay Date'] = schedule['Pay Date'].apply(lambda d: d.strftime('%Y-%m-%d'))
+                st.dataframe(schedule)
+                plot_distribution_schedule(schedule)
+                create_pdf(summary_df, schedule)
+            else:
+                st.info("No distributions available for the selected ETFs.")
         else:
-            st.info("No distributions available for the selected ETFs.")
+            st.warning("Please enter an investment amount and select at least one ETF.")
     else:
-        st.warning("Please enter an investment amount and select at least one ETF.")
+        st.warning("🚫 You've used your free simulation. Subscribe for unlimited access.")
+        st.markdown("[Click here to subscribe for $5/month](https://buy.stripe.com/test_dR6aEd8KcbkN4fK4gg)")
