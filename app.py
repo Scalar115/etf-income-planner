@@ -9,6 +9,9 @@ from io import BytesIO
 import streamlit.components.v1 as components
 import socket
 import yfinance as yf
+from yfinance import shared
+shared._USE_THREADS = False
+yf.pdr_override()
 
 st.set_page_config(page_title="ETF Income Planner", layout="centered")
 st.markdown("""
@@ -124,7 +127,7 @@ def simulate_income_planner(investment, etf_weights, state, income):
 def show_portfolio_performance(etf_weights, start, end, interval):
     prices, returns = pd.DataFrame(), {}
     for etf, w in etf_weights.items():
-        data = yf.download(etf, start=start, end=end, interval=interval)
+        data = yf.download(etf, start=start, end=end, interval=interval, progress=False, threads=False)
         if 'Adj Close' not in data:
             st.warning(f"⚠️ No data found for {etf}. Skipping.")
             continue
